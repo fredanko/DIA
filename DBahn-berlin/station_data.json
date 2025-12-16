@@ -10759,7 +10759,7 @@
     {
       "number": 6967,
       "ifopt": "de:11000:900058103",
-      "name": "Yorckstraße",
+      "name": "Berlin Yorckstr.(S2)",
       "mailingAddress": {
         "city": "Berlin",
         "zipcode": "10965",
@@ -12195,7 +12195,7 @@
     {
       "number": 7755,
       "ifopt": "de:11000:900057102",
-      "name": "Yorckstraße (Großgörschenstraße)",
+      "name": "Berlin Yorckstr.(S1)",
       "mailingAddress": {
         "city": "Berlin",
         "zipcode": "10827",
