@@ -55,20 +55,20 @@ def similarity(a: str, b: str) -> float:
     overlap = len(ta & tb) / max(len(ta), len(tb))
     return max(seq, overlap)
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class StationRec:
     eva: int
-    raw_name: str
-    norm_name: str
-    tokens: tuple[str, ...]
+    name: str
+    norm: str
+    toks: tuple[str, ...]
 
 def build_token_index(stations: list[StationRec]) -> dict[str, list[int]]:
-    """token -> list of indices into `stations`"""
     idx: dict[str, list[int]] = {}
     for i, st in enumerate(stations):
-        for t in st.tokens:
+        for t in st.toks:
             idx.setdefault(t, []).append(i)
     return idx
+
 
 def best_station_match(
     query_name: str,
@@ -77,7 +77,6 @@ def best_station_match(
     threshold: float,
     ambiguity_delta: float,
 ) -> tuple[int | None, float, str | None, bool]:
-    """Returns (eva_or_None, best_score, matched_raw_name, is_ambiguous)."""
     q_norm = normalize_name(query_name)
     if not q_norm:
         return None, 0.0, None, False
@@ -99,15 +98,14 @@ def best_station_match(
 
     for i in cand_indices:
         st = stations[i]
-        sc = similarity(q_norm, st.norm_name)
+        sc = similarity(q_norm, st.norm)
 
         if sc > best_score:
             second_best_score = best_score
-            best_eva, best_score, best_name, best_norm = st.eva, sc, st.raw_name, st.norm_name
+            best_eva, best_score, best_name, best_norm = st.eva, sc, st.name, st.norm
         elif sc == best_score and best_norm is not None:
-            # prefer the shorter normalized form if scores tie
-            if len(st.norm_name) < len(best_norm):
-                best_eva, best_score, best_name, best_norm = st.eva, sc, st.raw_name, st.norm_name
+            if len(st.norm) < len(best_norm):
+                best_eva, best_score, best_name, best_norm = st.eva, sc, st.name, st.norm
         elif sc > second_best_score:
             second_best_score = sc
 

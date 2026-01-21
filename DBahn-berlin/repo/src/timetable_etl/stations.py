@@ -12,11 +12,6 @@ def ensure_stationen_table(conn) -> None:
     conn.commit()
 
 def iter_station_rows(station_json_path: str | Path) -> Iterable[tuple[int, str, float | None, float | None]]:
-    """Yield (eva, name, latitude, longitude) rows from the station JSON file.
-
-    The parser is tolerant to the JSON being either a list or a dict with a 'result' list.
-    It looks for evaNumbers entries with isMain == True.
-    """
     station_json_path = Path(station_json_path)
 
     raw = json.loads(station_json_path.read_text(encoding="utf-8"))
