@@ -19,16 +19,13 @@ BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
 
 def ensure_change_support(conn) -> None:
-    """Ensure schema elements required for change processing exist."""
     ensure_dimensions(conn)
-    # stops table is created in planned pipeline; but keep constraint idempotent
     with conn.cursor() as cur:
         cur.execute(load_sql("schema/constraint_stops_cs_check.sql"))
     conn.commit()
 
 
 def parse_db_time(x: str | None) -> datetime | None:
-    """Parse DB time format YYMMDDHHMM (Europe/Berlin)."""
     if not x:
         return None
     x = x.strip()
@@ -46,7 +43,6 @@ def parse_cs(x: str | None) -> str | None:
 
 
 def snapshot_ts_from_member_name(xml_member_name: str) -> datetime | None:
-    """Expect member paths like: '2510011345/..._change.xml' -> snapshot_ts."""
     p = PurePosixPath(xml_member_name)
     if not p.parts:
         return None
@@ -65,42 +61,40 @@ def init_stage_tables(conn) -> None:
 
 
 Row = Tuple[
-    str,                 # stop_id
-    Optional[datetime],  # snapshot_ts
-    Optional[datetime],  # arrival_ct
-    Optional[datetime],  # departure_ct
-    Optional[datetime],  # arrival_clt
-    Optional[datetime],  # departure_clt
-    Optional[str],       # arrival_cs
-    Optional[str],       # departure_cs
-    Optional[str],       # arrival_cp
-    Optional[str],       # departure_cp
+    str, # stop_id
+    Optional[datetime], # snapshot_ts
+    Optional[datetime], # arrival_ct
+    Optional[datetime], # departure_ct
+    Optional[datetime], # arrival_clt
+    Optional[datetime], # departure_clt
+    Optional[str], # arrival_cs
+    Optional[str], # departure_cs
+    Optional[str], # arrival_cp
+    Optional[str], # departure_cp
 ]
 
 
-def merge_rows(a: Row, b: Row) -> Row:
-    """Merge two rows with same stop_id and same snapshot: prefer non-null values."""
-    # both have same stop_id
+def merge_rows_last_non_null(existing: Row, incoming: Row) -> Row:
+    snap = incoming[1] if incoming[1] is not None else existing[1]
     return (
-        a[0],
-        a[1] or b[1],
-        a[2] or b[2],
-        a[3] or b[3],
-        a[4] or b[4],
-        a[5] or b[5],
-        a[6] or b[6],
-        a[7] or b[7],
-        a[8] or b[8],
-        a[9] or b[9],
+        existing[0],
+        snap,
+        incoming[2] if incoming[2] is not None else existing[2],
+        incoming[3] if incoming[3] is not None else existing[3],
+        incoming[4] if incoming[4] is not None else existing[4],
+        incoming[5] if incoming[5] is not None else existing[5],
+        incoming[6] if incoming[6] is not None else existing[6],
+        incoming[7] if incoming[7] is not None else existing[7],
+        incoming[8] if incoming[8] is not None else existing[8],
+        incoming[9] if incoming[9] is not None else existing[9],
     )
 
 
 def apply_batch(conn, batch_rows: List[Row]) -> int:
-    """Stage changes and apply latest snapshot per stop_id."""
     if not batch_rows:
         return 0
 
-    if execute_values is None:  # pragma: no cover
+    if execute_values is None:
         raise RuntimeError("psycopg2.extras.execute_values not available")
 
     init_stage_tables(conn)
@@ -140,10 +134,7 @@ def apply_batch(conn, batch_rows: List[Row]) -> int:
             page_size=10_000,
         )
 
-        # 1) Update latest snapshot per stop_id
         cur.execute(load_sql("dml/upsert_latest_snapshot_from_stage.sql"))
-
-        # 2) Apply only if the staged row matches the latest snapshot
         cur.execute(load_sql("dml/update_stops_from_stage.sql"))
         updated = cur.rowcount
 
@@ -158,14 +149,13 @@ def process_change_archives(
     pattern: str = "*.tar.gz",
     batch_size: int = 50_000,
 ) -> dict:
-    """Process _change.xml archives and update ct/clt/cs/cp fields in stops."""
     ensure_change_support(conn)
     init_stage_tables(conn)
 
     updated_total = 0
     files = 0
 
-    # Dedupe per stop_id within a batch: max(snapshot_ts) wins
+    # Dedupe per stop_id within a batch: max(snapshot_ts) wins, however null values do not overwrite older values
     batch: Dict[str, Row] = {}
 
     def snap_or_min(dt: Optional[datetime]) -> datetime:
@@ -218,14 +208,18 @@ def process_change_archives(
             )
 
             existing = batch.get(stop_id)
+            # if first snapshot, just accept it
             if existing is None:
                 batch[stop_id] = row
             else:
-                # newer snapshot wins; if equal snapshot, merge non-null fields
+                # if incoming snapshot if at the same time or later, accept newer values
                 if snap_or_min(row[1]) > snap_or_min(existing[1]):
-                    batch[stop_id] = row
+                    batch[stop_id] = merge_rows_last_non_null(existing, row)
                 elif snap_or_min(row[1]) == snap_or_min(existing[1]):
-                    batch[stop_id] = merge_rows(existing, row)
+                    batch[stop_id] = merge_rows_last_non_null(existing, row)
+                # if snapshot is earlier, reject new values
+                else:
+                    pass
 
             if len(batch) >= batch_size:
                 flush()

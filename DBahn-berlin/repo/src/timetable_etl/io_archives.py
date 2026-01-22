@@ -5,15 +5,15 @@ import tarfile
 import xml.etree.ElementTree as ET
 from typing import Iterator
 
+# This is a helper function (iterator) that is designed to yield the xml roots from the source folders
 def iter_xml_roots(archives_dir: str | Path, pattern: str = "*.tar.gz"
                    ) -> Iterator[tuple[Path, str, ET.Element]]:
-    """Stream XML roots from all .tar.gz archives under archives_dir."""
     archives_dir = Path(archives_dir)
-
+    # Iterate throgh every .tar.gz
     for archive_path in sorted(archives_dir.glob(pattern)):
         try:
             with tarfile.open(archive_path, mode="r:gz") as tar:
-                # Stream over members (more memory friendly than getmembers()).
+                # iterate trough every .xml in the tar files
                 for member in tar:
                     if not member.isfile():
                         continue
@@ -27,6 +27,7 @@ def iter_xml_roots(archives_dir: str | Path, pattern: str = "*.tar.gz"
                     try:
                         with extracted as f:
                             tree = ET.parse(f)
+                            # yield root
                             yield archive_path, member.name, tree.getroot()
                     except ET.ParseError as e:
                         print(f"[WARN] XML ParseError in {archive_path}::{member.name}: {e}")

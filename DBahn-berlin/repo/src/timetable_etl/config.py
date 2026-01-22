@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 import os
@@ -36,6 +35,7 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
+            # Read env or fallback to standard settings
             db_host=os.getenv("DB_HOST", "localhost"),
             db_name=os.getenv("DB_NAME", "postgres"),
             db_user=os.getenv("DB_USER", "postgres"),
@@ -45,7 +45,7 @@ class Settings:
             changes_archives_path=_as_path(os.getenv("CHANGES_ARCHIVES_PATH", "./timetable_changes")),
             archive_pattern=os.getenv("ARCHIVE_PATTERN", "*.tar.gz"),
             timezone=os.getenv("TIMEZONE", "Europe/Berlin"),
-            match_threshold=float(os.getenv("MATCH_THRESHOLD", "0.85")),
+            match_threshold=float(os.getenv("MATCH_THRESHOLD", "0.75")),
             ambiguity_delta=float(os.getenv("AMBIGUITY_DELTA", "0.02")),
             planned_batch_size=int(os.getenv("PLANNED_BATCH_SIZE", "5000")),
             change_batch_size=int(os.getenv("CHANGE_BATCH_SIZE", "50000")),

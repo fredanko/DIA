@@ -1,15 +1,15 @@
 from __future__ import annotations
-
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
 import xml.etree.ElementTree as ET
-from typing import Iterable, Optional, Dict, Tuple, List
+from typing import Iterable
+from collections import defaultdict, Counter
 
 try:
     from psycopg2.extras import execute_values
-except Exception:  # pragma: no cover
+except Exception:
     execute_values = None
 
 from .sql import load_sql
@@ -26,8 +26,8 @@ from .dimensions import ensure_dimensions, get_time_ids, get_train_ids, TrainKey
 _pt_re = re.compile(r"^\d{10}$")  # YYMMDDHHMM
 
 
+# Make sure the the stops table exist
 def ensure_stops_table(conn) -> None:
-    """Create all required tables for planned + changed stops."""
     ensure_dimensions(conn)
     with conn.cursor() as cur:
         cur.execute(load_sql("schema/create_stops.sql"))
@@ -36,7 +36,6 @@ def ensure_stops_table(conn) -> None:
 
 
 def parse_pt(pt: str | None, tz: ZoneInfo) -> datetime | None:
-    """Parse planned time 'YYMMDDHHMM' into an aware datetime."""
     if pt is None:
         return None
     pt = pt.strip()
@@ -53,9 +52,8 @@ def parse_pt(pt: str | None, tz: ZoneInfo) -> datetime | None:
     except Exception:
         return None
 
-
+# Helper function to read one XML file
 def extract_station_and_rows(root: ET.Element) -> tuple[str, list[dict]] | None:
-    """Extract station name and planned rows from a timetable XML root."""
     station_name = root.get("station")
     if not station_name:
         return None
@@ -76,7 +74,6 @@ def extract_station_and_rows(root: ET.Element) -> tuple[str, list[dict]] | None:
         arrival_pp = ar.get("pp") if ar is not None else None
         departure_pp = dp.get("pp") if dp is not None else None
 
-        # line can appear on ar or dp (prefer dp)
         line = None
         if dp is not None:
             line = dp.get("l")
@@ -121,6 +118,56 @@ def load_stations(conn) -> list[StationRec]:
         stations.append(StationRec(eva=int(eva), name=str(name), norm=norm, toks=toks))
     return stations
 
+def _mode(values: Iterable, *, prefer_non_null: bool = True):
+    vals = list(values)
+    if not vals:
+        return None
+
+    c = Counter(vals)
+    top_count = max(c.values())
+    winners = [v for v, n in c.items() if n == top_count]
+    if len(winners) == 1:
+        return winners[0]
+
+    if prefer_non_null:
+        non_null = [v for v in winners if v is not None]
+        if non_null:
+            winners = non_null
+            if len(winners) == 1:
+                return winners[0]
+
+    winners.sort(key=lambda x: "" if x is None else str(x))
+    return winners[0]
+
+
+def majority_dedup_batch(batch: list[tuple]) -> list[tuple]:
+    by_stop: dict[str, list[tuple]] = defaultdict(list)
+    for row in batch:
+        by_stop[row[0]].append(row)
+
+    out: list[tuple] = []
+    for stop_id, rows in by_stop.items():
+        evas = [r[1] for r in rows]
+        train_ids = [r[2] for r in rows]
+        arr_ids = [r[3] for r in rows]
+        dep_ids = [r[4] for r in rows]
+        arr_pps = [r[5] for r in rows]
+        dep_pps = [r[6] for r in rows]
+
+        out.append(
+            (
+                stop_id,
+                _mode(evas),
+                _mode(train_ids),
+                _mode(arr_ids, prefer_non_null=True),
+                _mode(dep_ids, prefer_non_null=True),
+                _mode(arr_pps, prefer_non_null=True),
+                _mode(dep_pps, prefer_non_null=True),
+            )
+        )
+
+    return out
+
 
 def import_stops_from_archives(
     conn,
@@ -132,10 +179,9 @@ def import_stops_from_archives(
     ambiguity_delta: float = 0.02,
     batch_size: int = 5000,
 ) -> dict:
-    """Import planned stops into the `stops` fact table."""
     ensure_stops_table(conn)
 
-    if execute_values is None:  # pragma: no cover
+    if execute_values is None:
         raise RuntimeError("psycopg2.extras.execute_values not available")
 
     tz = ZoneInfo(timezone)
@@ -147,7 +193,6 @@ def import_stops_from_archives(
     files = 0
     unmatched_stations: set[str] = set()
 
-    # Stage rows before we resolve dimension IDs
     staged: list[dict] = []
 
     def flush() -> None:
@@ -173,7 +218,6 @@ def import_stops_from_archives(
             train_key = r["train_key"]
             train_id = train_ids.get(train_key)
             if train_id is None:
-                # If train data is missing, skip the stop (can't satisfy NOT NULL FK)
                 continue
 
             arrival_pt_id = time_ids.get(r["arrival_pt_dt"]) if r["arrival_pt_dt"] is not None else None
@@ -191,11 +235,8 @@ def import_stops_from_archives(
                 )
             )
         
-        dedup: dict[str, tuple] = {}
-        for row in batch:
-            dedup[row[0]] = row
-
-        batch = list(dedup.values())
+        # Majority Vote for Deduplication
+        batch = majority_dedup_batch(batch)
 
         with conn.cursor() as cur:
             execute_values(

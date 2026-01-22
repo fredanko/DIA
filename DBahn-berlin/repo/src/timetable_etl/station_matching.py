@@ -11,24 +11,31 @@ _ws_re = re.compile(r"\s+")
 _stopwords = {"berlin", "s", "u", "s+u", "u+s"}
 
 def normalize_name(name: str) -> str:
+    # Translate German Umlaute
     name = name.lower().translate(_umlaut_map)
 
+    # standardize naming convetions of train stations
     name = name.replace("straße", "strasse")
     name = name.replace("betriebsbf", "betriebsbahnhof")
     name = name.replace("hauptbahnhof", "hbf")
 
+    # standardize naming conventions of "bahnhof"
     name = re.sub(r"\bbahnhof\b", "bf", name)
     name = re.sub(r"\bbhf\b", "bf", name)
     name = re.sub(r"\bbf\.?\b", "bf", name)
 
+    # standardize further
     name = name.replace("&", " und ")
     name = _punct_re.sub(" ", name)
 
+    # standardize term "strasse" and combination of "strasse" and whitespaces
     name = re.sub(r"(?<=\w)str\b", "strasse", name)
     name = re.sub(r"\bstr\b", "strasse", name)
     name = re.sub(r"(?<!\s)strasse\b", " strasse", name)
 
     name = _ws_re.sub(" ", name).strip()
+
+    # Remove stop words
     tokens = [t for t in name.split() if t and t not in _stopwords]
     return " ".join(tokens)
 
@@ -36,22 +43,19 @@ def token_set(s: str) -> set[str]:
     return {t for t in s.split() if len(t) >= 2}
 
 def similarity(a: str, b: str) -> float:
+    # hardcoded metrics
     if not a or not b:
         return 0.0
     if a == b:
         return 1.0
 
-    if a in b or b in a:
-        # encourage substring matches
-        return 0.95
-
-    # best of two measures: sequence ratio + token overlap
     seq = difflib.SequenceMatcher(None, a, b).ratio()
 
     ta, tb = token_set(a), token_set(b)
     if not ta or not tb:
         return seq
 
+    # similar idea to jaccard similarity but does not use union but max length
     overlap = len(ta & tb) / max(len(ta), len(tb))
     return max(seq, overlap)
 
@@ -77,12 +81,14 @@ def best_station_match(
     threshold: float,
     ambiguity_delta: float,
 ) -> tuple[int | None, float, str | None, bool]:
+    
     q_norm = normalize_name(query_name)
     if not q_norm:
         return None, 0.0, None, False
 
     q_tokens = token_set(q_norm)
 
+    # Consider Candidates with same tokens, and if no tokens are same, consider all
     cand_indices: set[int] = set()
     for t in q_tokens:
         cand_indices.update(token_index.get(t, []))
@@ -96,6 +102,7 @@ def best_station_match(
     best_norm: str | None = None
     second_best_score: float = 0.0
 
+    # Find candidate with the best similarity
     for i in cand_indices:
         st = stations[i]
         sc = similarity(q_norm, st.norm)

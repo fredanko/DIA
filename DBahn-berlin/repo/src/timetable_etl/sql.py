@@ -8,6 +8,7 @@ def repo_root() -> Path:
 
 SQL_ROOT = repo_root() / "sql"
 
+# This is a helper function to return a string represtentation of an sql query given a path to later use it as an argumente within .execute(...)
 @lru_cache(maxsize=256)
 def load_sql(relative_path: str) -> str:
     path = (SQL_ROOT / relative_path).resolve()

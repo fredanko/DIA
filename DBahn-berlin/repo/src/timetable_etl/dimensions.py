@@ -14,7 +14,6 @@ TrainKey = Tuple[str, str, str, Optional[str], Optional[str], Optional[str]]  # 
 
 
 def ensure_dimensions(conn) -> None:
-    """Create dimension tables if they do not exist (idempotent)."""
     with conn.cursor() as cur:
         cur.execute(load_sql("schema/create_dim_time.sql"))
         cur.execute(load_sql("schema/create_dim_train.sql"))
@@ -22,12 +21,11 @@ def ensure_dimensions(conn) -> None:
 
 
 def get_time_ids(conn, dts: Iterable[datetime]) -> Dict[datetime, int]:
-    """Ensure all timestamps exist in dim_time and return mapping dt -> time_id."""
     dts_list = [dt for dt in dts if dt is not None]
     if not dts_list:
         return {}
 
-    if execute_values is None:  # pragma: no cover
+    if execute_values is None:
         raise RuntimeError("psycopg2.extras.execute_values not available")
 
     uniq = sorted(set(dts_list))
@@ -45,7 +43,6 @@ def get_time_ids(conn, dts: Iterable[datetime]) -> Dict[datetime, int]:
 
 
 def get_train_ids(conn, trains: Iterable[TrainKey]) -> Dict[TrainKey, int]:
-    """Ensure all train keys exist in dim_train and return mapping key -> train_id."""
     trains_list = [t for t in trains if t is not None]
     if not trains_list:
         return {}

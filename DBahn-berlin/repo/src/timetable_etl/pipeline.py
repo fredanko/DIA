@@ -5,8 +5,8 @@ from .stations import import_stationen
 from .stops_planned import import_stops_from_archives
 from .stops_changed import process_change_archives
 
+# This function could be run instead of the notebook
 def run_task1(conn, settings: Settings) -> dict:
-    """Run the full Task 1 pipeline: stations -> planned stops -> changed stops."""
     stations_upserted = import_stationen(conn, settings.station_json_path)
 
     planned_res = import_stops_from_archives(
