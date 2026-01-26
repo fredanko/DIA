@@ -6,17 +6,13 @@ from typing import Iterable
 
 from .sql import load_sql
 
+# helper function to ensure that the stations table does exist
 def ensure_stationen_table(conn) -> None:
     with conn.cursor() as cur:
         cur.execute(load_sql("schema/create_stationen.sql"))
     conn.commit()
 
 def iter_station_rows(station_json_path: str | Path) -> Iterable[tuple[int, str, float | None, float | None]]:
-    """Yield (eva, name, latitude, longitude) rows from the station JSON file.
-
-    The parser is tolerant to the JSON being either a list or a dict with a 'result' list.
-    It looks for evaNumbers entries with isMain == True.
-    """
     station_json_path = Path(station_json_path)
 
     raw = json.loads(station_json_path.read_text(encoding="utf-8"))
@@ -24,6 +20,7 @@ def iter_station_rows(station_json_path: str | Path) -> Iterable[tuple[int, str,
     if not isinstance(stations, list):
         return
 
+    # iterate all stations from the json file
     for st in stations:
         if not isinstance(st, dict):
             continue
@@ -44,7 +41,6 @@ def iter_station_rows(station_json_path: str | Path) -> Iterable[tuple[int, str,
             lon = lat = None
             coords = (eva.get("geographicCoordinates") or {}).get("coordinates")
             if isinstance(coords, (list, tuple)) and len(coords) >= 2:
-                # common order is [lon, lat]
                 try:
                     lon = float(coords[0]) if coords[0] is not None else None
                     lat = float(coords[1]) if coords[1] is not None else None

@@ -10,16 +10,12 @@ from archive_iterator import iter_xml_roots
 from xml_extractor import extract_s_id_and_pts
 
 try:
-    # schneller für große Batches
     from psycopg2.extras import execute_values
 except Exception:
     execute_values = None
 
 
 def parse_timetables():
-    # ----------------------------
-    # Einstellungen
-    # ----------------------------
     TIMEZONE = "Europe/Berlin"
 
     MATCH_THRESHOLD = 0.85
@@ -33,10 +29,7 @@ def parse_timetables():
             cur.execute(create_sql)
         conn.commit()
 
-    # ----------------------------
-    # Parsing von pt: YYMMDDHHMM -> aware datetime
-    # ----------------------------
-    _pt_re = re.compile(r"^\d{10}$")  # YYMMDDHHMM
+    _pt_re = re.compile(r"^\d{10}$")
 
     def parse_pt(pt: str | None, tz: ZoneInfo) -> datetime | None:
         if pt is None:
@@ -56,10 +49,6 @@ def parse_timetables():
         except ValueError:
             return None
 
-
-    # ----------------------------
-    # Normalisierung & Matching
-    # ----------------------------
     _umlaut_map = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
     _punct_re = re.compile(r"[^a-z0-9\s]")
     _ws_re = re.compile(r"\s+")
@@ -136,13 +125,11 @@ def parse_timetables():
 
 
     def build_token_index(stations: list[StationRec]) -> dict[str, list[int]]:
-        """token -> list of indices into `stations`"""
         idx: dict[str, list[int]] = {}
         for i, st in enumerate(stations):
             for t in st.tokens:
                 idx.setdefault(t, []).append(i)
         return idx
-
 
     def best_station_match(
         query_name: str,
@@ -151,9 +138,6 @@ def parse_timetables():
         threshold: float,
         ambiguity_delta: float,
     ) -> tuple[int | None, float, str | None, bool]:
-        """
-        Returns (eva_or_None, best_score, matched_raw_name, is_ambiguous)
-        """
         q_norm = normalize_name(query_name)
         if not q_norm:
             return None, 0.0, None, False
@@ -192,10 +176,6 @@ def parse_timetables():
         is_ambiguous = (best_score - second_best_score) < ambiguity_delta
         return best_eva, best_score, best_name, is_ambiguous
 
-
-    # ----------------------------
-    # DB Insert/Upsert Stops
-    # ----------------------------
     UPSERT_SQL = """
     INSERT INTO stops (stop_id, eva, ar_ts, dp_ts)
     VALUES %s
@@ -222,10 +202,6 @@ def parse_timetables():
         conn.commit()
         return len(batch)
 
-
-    # ----------------------------
-    # Main Import
-    # ----------------------------
     def import_stops_from_archives(conn, archives_dir: str, pattern: str = "*.tar.gz"):
         ensure_stops_table(conn)
 

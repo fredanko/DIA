@@ -1,7 +1,2 @@
-ALTER TABLE public.stops
-                ADD COLUMN IF NOT EXISTS actual_arrival   timestamptz,
-                ADD COLUMN IF NOT EXISTS actual_departure timestamptz,
-                ADD COLUMN IF NOT EXISTS cancelled_arrival   timestamptz,
-                ADD COLUMN IF NOT EXISTS cancelled_departure timestamptz,
-                ADD COLUMN IF NOT EXISTS arrival_cs   text,
-                ADD COLUMN IF NOT EXISTS departure_cs text;
+-- No longer needed: times are now stored via dim_time foreign keys and train via dim_train.
+-- Kept as a no-op for backwards compatibility with older scripts/notebooks.
