@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS stops (
     arrival_pp   TEXT NULL,  -- planned platform ar@pp
     departure_pp TEXT NULL,  -- planned platform dp@pp
     arrival_cp   TEXT NULL,  -- changed platform ar@cp
-    departure_cp TEXT NULL   -- changed platform dp@cp
+    departure_cp TEXT NULL,   -- changed platform dp@cp
+
+     -- stop order within this train run
+    stop_sequence_index INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS stops_eva_idx ON stops (eva);
