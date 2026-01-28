@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:17
+    container_name: dia_project
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: dia_user
+      POSTGRES_PASSWORD: dia
+      POSTGRES_DB: db_berlin
+    volumes:
+      - db_berlin_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_berlin
+    ports:
+      - "8081:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dia@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      - db
+
+  spark-master:
+    image: apache/spark:3.5.1-python3
+    container_name: spark-master
+    hostname: spark-master
+    environment:
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8080
+      - SPARK_SUBMIT_OPTS=-Divy.home=/opt/spark/work-dir/.ivy2
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+      - "4040:4040"  
+    volumes:
+      - ./:/opt/spark-apps
+      - ./DBahn-berlin:/opt/spark-data
+    command: >
+      bash -c "mkdir -p /opt/spark/work-dir/.ivy2 &&
+               /opt/spark/bin/spark-shell --packages com.databricks:spark-xml_2.12:0.18.0 <<< ':quit' &&
+               /opt/spark/sbin/start-master.sh &&
+               tail -f /dev/null"
+
+  spark-worker:
+    image: apache/spark:3.5.1-python3
+    hostname: spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_WORKER_CORES=3 # Adjust based on your CPU
+      - SPARK_WORKER_MEMORY=3G # Adjust based on your RAM
+      - SPARK_SUBMIT_OPTS=-Divy.home=/opt/spark/work-dir/.ivy2
+    volumes:
+      - ./:/opt/spark-apps
+      - ./DBahn-berlin:/opt/spark-data
+    command: >
+      bash -c "mkdir -p /opt/spark/work-dir/.ivy2 &&
+               /opt/spark/sbin/start-worker.sh spark://spark-master:7077 &&
+               tail -f /dev/null"
+
+volumes:
+  db_berlin_data:
