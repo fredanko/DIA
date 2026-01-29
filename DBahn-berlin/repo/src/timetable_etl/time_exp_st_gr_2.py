@@ -71,96 +71,43 @@ def build_time_exp_graph(conn):
 
     return g, eva_to_v
 
+def edge_len(v_type_u, v_type_v, edge_time, t_u):
+    if v_type_u == "station" and v_type_v == "trip":
+        # Only board if departure at/after we are at station
+        return edge_time if edge_time >= t_u else None
+    if v_type_u == "trip" and v_type_v == "station":
+        # Arrival is fixed
+        return edge_time
+    return None  # no other edge types
 
-# earliest arrival = search for earliest incoming node at goal connected to start by a path (~modified Dijkstra)
 def earliest_arrival(g, start, goal, dep_ts):
     e_time = g.edge_properties["time"]
     v_type = g.vertex_properties["type"]
 
-    earliest = {v: inf for v in g.vertices()} # all nodes are infinitely far (~late) away
-    parent   = {}
-    #visited_trips = set() # track trips
- 
-    earliest[start] = dep_ts
+    d = {v: inf for v in g.vertices()}
+    parent = {}
+
+    d[start] = dep_ts
     pq = [(dep_ts, start)]
 
     while pq:
         cur_time, u = heapq.heappop(pq)
-
-        if cur_time > earliest[u]:
+        if cur_time > d[u]:
             continue
         if u == goal:
             break
 
         for e in u.out_edges():
             v = e.target()
-            if v_type[u] == "station" and v_type[v] == "trip":
-                dep = e_time[e]
-                if dep < earliest[u]:
-                    continue
-                new_time = dep
-            elif v_type[u] == "trip" and v_type[v] == "station":
-                new_time = e_time[e]
-            else:
+            t_new = edge_len(v_type[u], v_type[v], e_time[e], d[u])
+            if t_new is None:
                 continue
-            
-            if new_time <= earliest[v]:
-                earliest[v] = new_time
-                parent[v] = (u,e)
-                heapq.heappush(pq, (new_time, v))
+            if t_new < d[v]:
+                d[v] = t_new
+                parent[v] = (u, e)
+                heapq.heappush(pq, (t_new, v))
 
-# --- 
-#     while pq:
-#         cur_time, u = heapq.heappop(pq)
-
-#         # skip node if already found better option
-#         if cur_time > earliest[u]:
-#             continue
-#         if u == goal:
-#             break
-
-#         for e in u.out_edges():
-#             v = e.target()
-#             edge_time = e_time[e] # dep or arr time
-
-# # ------- version with 6 day delay
-#             # station -> trip: only take trip if dep time (edge time) ≥ current time
-#             if v_type[u] == "station":
-#                if edge_time >= cur_time and edge_time < earliest[v]:
-#                    earliest[v] = edge_time
-#                    parent[v] = (u,e)
-#                    heapq.heappush(pq, (edge_time, v))
-
-#             # trip -> station: arrival time (edge time) is new earliest arrival time at station
-#             else:
-#                if edge_time >= cur_time and edge_time < earliest[v]:
-#                    earliest[v] = edge_time
-#                    parent[v] = (u,e)
-#                    heapq.heappush(pq, (edge_time,v))
-# -------
-
-
-# ----- fails
-        # station -> trip: only take trip if dep time (edge time) ≥ current time
-        # if v_type[u] == "station":
-        #     if edge_time < cur_time:
-        #         continue # trip not feasable
-        #     candidate_time = edge_time
-        
-        # # trip -> station: arrival time (edge time) is new earliest arrival time at station
-        # else: 
-        #     #if edge_time < cur_time:
-        #     #    continue 
-        #     candidate_time = edge_time
-        
-        # # relaxation
-        # if candidate_time < earliest[v]:
-        #     earliest[v] = candidate_time
-        #     parent[v] = (u,e)
-        #     heapq.heappush(pq, (candidate_time, v))
-# -----
-
-    return earliest, parent
+    return d, parent
 
 # build path from start to goal
 def reconstruct_path(parent, start, goal):

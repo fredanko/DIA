@@ -3,8 +3,13 @@ WITH base AS (
         s.stop_id,
         s.train_id,
         s.eva,
+
+        s.departure_pt_id,
+        s.arrival_pt_id,
+
         t.ts AS planned_ts,
         DATE(t.ts) AS service_date,
+
         LAG(t.ts) OVER (
             PARTITION BY s.train_id, DATE(t.ts)
             ORDER BY t.ts
@@ -38,7 +43,6 @@ sequenced AS (
         ) AS seq
     FROM runs
 )
-
 SELECT
     a.train_id,
     dt.category,
@@ -61,6 +65,6 @@ JOIN dim_train dt
 JOIN dim_time t_dep
   ON t_dep.time_id = a.departure_pt_id
 JOIN dim_time t_arr
-  ON t_arr.time_id = b.arrival_pt_id
-WHERE dt.category != 'Bus';
+  ON t_arr.time_id = b.arrival_pt_id;
+
 
