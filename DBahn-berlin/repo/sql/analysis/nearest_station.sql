@@ -3,14 +3,11 @@ SELECT
   name,
   latitude,
   longitude,
-  6371000 * 2 * asin(
-    sqrt(
-      power(sin(radians(%(lat)s - latitude) / 2), 2) +
-      cos(radians(latitude)) * cos(radians(%(lat)s)) *
-      power(sin(radians(%(lon)s - longitude) / 2), 2)
-    )
-  ) AS distance_m
+  sqrt(
+    power(%(lat)s - latitude, 2) +
+    power(%(lon)s - longitude, 2)
+  ) AS distance_deg
 FROM public.stationen
 WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-ORDER BY distance_m
+ORDER BY distance_deg
 LIMIT 1;
