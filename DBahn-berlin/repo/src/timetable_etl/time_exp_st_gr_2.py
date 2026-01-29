@@ -124,3 +124,20 @@ def reconstruct_path(parent, start, goal):
         v = parent[v][0]
     path.append(start)
     return list(reversed(path))
+
+def reconstruct_path_with_edge_times(parent, start, goal):
+
+    if goal not in parent and goal != start:
+        return None
+
+    path = []
+    v = goal
+
+    while v != start:
+        if v not in parent:
+            return None
+        u, e = parent[v]
+        path.append((u, e, v))
+        v = u
+
+    return list(reversed(path))
