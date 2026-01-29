@@ -1,8 +1,8 @@
 from graph_tool import Graph
 from .sql import load_sql
 
-def build_station_graph(conn):
-    g = Graph(directed=False)
+def build_station_graph(conn, directed=False):
+    g = Graph(directed=directed)
 
     # vertex properties: station eva and name
     v_eva = g.new_vertex_property("long")
@@ -31,7 +31,10 @@ def build_station_graph(conn):
 
     # load edges
     with conn.cursor() as cur:
-        cur.execute(load_sql("graph/station_edges.sql"))
+        if not directed:
+            cur.execute(load_sql("graph/station_edges.sql"))
+        elif directed:
+            cur.execute(load_sql("graph/station_edges_dir.sql"))
         edges = cur.fetchall()
 
     for eva_u, eva_v in edges:
