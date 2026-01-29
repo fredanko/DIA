@@ -27,7 +27,7 @@ def find_station_in_data(spark, search_name):
     Assuming the station names are from the station json we perform a levensthein search to find the closest one.
     For this we get all unique station names from the dataset and pick the most similar one
     """
-    # Extra case as per forum post
+    # Extra case as per forum post, although we changed this in station_data, will just leave it in here
     search_lower = search_name.lower().strip()
     if "yorckstraße (großgörschenstraße)" in search_lower:
         return "Berlin Yorckstr.(S1)"

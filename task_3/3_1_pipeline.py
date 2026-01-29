@@ -1,7 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, when, broadcast, regexp_extract, row_number, lit, explode, input_file_name,
-    to_timestamp, concat, substring
+    to_timestamp, concat, substring, count
 )
 from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType
@@ -78,6 +78,59 @@ def parse_dbahn_timestamp(df, input_col, output_col=None):
         )
     )
 
+def duplicate_analysis(df, spark):
+    """
+    duplicate analysis on data
+    """
+    sc = spark.sparkContext
+
+    print("-" * 60)
+    print("Running test for duplicate analysis")
+    print("-" * 60)
+
+    df.cache()
+
+    print("\nTop 10 most frequent stop_ids:")
+    sc.setJobDescription("Reading timetable xml")
+    stop_id_counts = df.groupBy("stop_id", "event_type") \
+        .agg(count("*").alias("count")) \
+        .orderBy(col("count").desc())
+    stop_id_counts.show(10, truncate=False)
+    
+    print("\nDistinct station names:")
+    sc.setJobDescription("Reading distinct station names")
+    distinct_stations = df.select("station_name").distinct().orderBy("station_name")
+
+    df.unpersist()
+
+    distinct_stations.cache()
+    station_count = distinct_stations.count()
+    distinct_stations.show(station_count, truncate=False)
+
+    distinct_stations.unpersist()
+
+    print("-" * 60)
+    print(f"{station_count} unique stations found")
+    print("-" * 60)
+
+def majority_vote_deduplication(df):
+    """
+    Perform deduplication for stop ids that occur multiple times, by using majority vote over all attributes
+    """
+    # count occurence of each combination
+    grouped = df.groupBy("stop_id", "event_type", "station_name", "planned_time", "snapshot_timestamp", "snapshot_type") \
+        .agg(count("*").alias("occurrence_count"))
+    
+    # rank by occurence count
+    window_spec = Window.partitionBy("stop_id", "event_type").orderBy(col("occurrence_count").desc())
+    
+    deduped = grouped \
+        .withColumn("rank", row_number().over(window_spec)) \
+        .filter(col("rank") == 1) \
+        .drop("rank", "occurrence_count")
+    
+    return deduped
+
 def read_timetable_xml(spark):
     """
     Read timetable XML files using spark-xml
@@ -137,6 +190,12 @@ def read_timetable_xml(spark):
     # Parse time fomat
     result = parse_dbahn_timestamp(result, "planned_time")
     
+    # Apply majority vote deduplication to handle duplicate stop ids
+    result = majority_vote_deduplication(result)
+
+    # duplicate analysis for timetables, remove comment if you want to use it, makes it slower though
+    # duplicate_analysis(result, spark)
+
     return result
 
 def read_change_xml(spark):

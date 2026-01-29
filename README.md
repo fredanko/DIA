@@ -61,6 +61,7 @@ CHANGES_PATH='/opt/spark-apps/DBahn-berlin/timetable_changes_extracted'
 ```bash
 docker exec spark-master /opt/spark/bin/spark-submit \
   --driver-memory 6g \
+  --packages com.databricks:spark-xml_2.12:0.18.0 \
   --conf spark.driver.maxResultSize=2g \
   /opt/spark-apps/task_3/3_1_pipeline.py
 ```
@@ -70,6 +71,7 @@ docker exec spark-master /opt/spark/bin/spark-submit \
 docker exec spark-master /opt/spark/bin/spark-submit \
   --master spark://spark-master:7077 \
   --driver-memory 2g \
+  --packages com.databricks:spark-xml_2.12:0.18.0 \
   --executor-memory 3g \
   --executor-cores 2 \
   --num-executors 2 \
@@ -85,7 +87,8 @@ docker exec spark-master /opt/spark/bin/spark-submit \
 - Adjust memory on demand
 **Local Mode:**
 ```bash
-docker exec spark-master /opt/spark/bin/spark-submit \
+docker exec spark-master /opt/spark/bin/spark-submit \ 
+  --packages com.databricks:spark-xml_2.12:0.18.0 \
   --driver-memory 6g \
   /opt/spark-apps/task_3/3_2_average_delays.py
 ```
@@ -93,6 +96,7 @@ docker exec spark-master /opt/spark/bin/spark-submit \
 **Cluster Mode:**
 ```bash
 docker exec spark-master /opt/spark/bin/spark-submit \
+  --packages com.databricks:spark-xml_2.12:0.18.0 \
   --master spark://spark-master:7077 \
   --driver-memory 2g \
   --executor-memory 4g \
@@ -112,6 +116,7 @@ station_name = "Alexanderplatz" # change station name here
 **Local Mode**
 ```bash
 docker exec spark-master /opt/spark/bin/spark-submit \
+  --packages com.databricks:spark-xml_2.12:0.18.0 \
   --driver-memory 6g \
   /opt/spark-apps/task_3/3_3_rush_hour_departures.py
 ```
@@ -119,6 +124,7 @@ docker exec spark-master /opt/spark/bin/spark-submit \
 **Cluster Mode**
 ```bash
 docker exec spark-master /opt/spark/bin/spark-submit \
+  --packages com.databricks:spark-xml_2.12:0.18.0 \
   --master spark://spark-master:7077 \
   --driver-memory 2g \
   --executor-memory 4g \
