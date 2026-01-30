@@ -14,4 +14,4 @@ In the repository, enter:
 
 #### Solutions
 
-The ``src`` folder contains some helper python methods, the ```sql`` folder contains all queries needed. The solutions are contained in the respective notebooks in the folders ``taskX``.
+The ``src`` folder contains some helper python methods, the ``sql`` folder contains all queries needed. The solutions are contained in the respective notebooks in the folders ``taskX``.
