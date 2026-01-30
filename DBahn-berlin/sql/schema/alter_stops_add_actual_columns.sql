@@ -1,0 +1,2 @@
+-- No longer needed: times are now stored via dim_time foreign keys and train via dim_train.
+-- Kept as a no-op for backwards compatibility with older scripts/notebooks.

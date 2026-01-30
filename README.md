@@ -1,8 +1,8 @@
 # TU Berlin DAMS Lab Datasets Submission
 
-# Task 1 Instructions
+# Task 1, 2 & 4 Instructions
 
-# Task 2 Instructions
+Instructions and Solutions of this task are one folder below in ``DBahn-berlin``
 
 # Task 3 Instructions
 
@@ -130,6 +130,3 @@ docker exec spark-master /opt/spark/bin/spark-submit \
   --executor-memory 4g \
   /opt/spark-apps/task_3/3_3_rush_hour_departures.py
 ```
-
-
-# Task 4 Instructions
