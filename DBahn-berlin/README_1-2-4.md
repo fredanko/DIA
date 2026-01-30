@@ -15,3 +15,7 @@ In the repository, enter:
 #### Solutions
 
 The ``src`` folder contains some helper python methods, the ``sql`` folder contains all queries needed. The solutions are contained in the respective notebooks in the folders ``taskX``.
+
+#### ENV file
+
+Please note that in order to connect to your local postgres DB, you will have to use an ``.env`` file or modify your postgres password in ``src/timetable_etl/config.py``.
